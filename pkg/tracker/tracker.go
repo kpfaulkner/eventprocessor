@@ -118,11 +118,12 @@ func (t *Tracker) GetInt(bucketName string, key string) int{
 		return nil
 	})
 
-	eventNo := uint32(0)
+	// -1 means no data recorded for it.
+	eventNo := -1
 	if len(val) != 0 {
-		eventNo = binary.LittleEndian.Uint32(val)
+		eventNo = int(binary.LittleEndian.Uint32(val))
 	}
-	return int(eventNo)
+	return eventNo
 }
 
 func (t *Tracker) Get(bucketName string, key []byte) []byte{
