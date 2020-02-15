@@ -75,20 +75,16 @@ func (t *Tracker) Close() error{
 
 // UpdatePosition updates a key in a given bucket..
 // assumption key is string and value is int. Does the byte array conversion dance.
+// Measuring the performance of eventprocessor in general, this updating of position (specifically writing to disk)
+// seems to be the slowest part of the entire system. Probably because all EPs are just empty.
+// But if I replace the below with just a return nil statement, we absolutely FLY through the events.
+// Need to see if boltdb is the best option here.
 func (t *Tracker) UpdatePosition(bucketName string, key string, value int) error {
-
-	//fmt.Printf("XXXXXXXXXXXXXX\n")
-	return nil
-
-	// fake for now...
-
-
-	/*
 	eventNo := make([]byte, 4)
 	eventNoInt := uint32(value)
 	binary.LittleEndian.PutUint32(eventNo, eventNoInt)
 	err := t.Update(bucketName, []byte(key), eventNo)
-	return err */
+	return err
 }
 
 // Update updates a key in a given bucket. key and value are byte arrays.
