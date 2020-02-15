@@ -76,11 +76,19 @@ func (t *Tracker) Close() error{
 // UpdatePosition updates a key in a given bucket..
 // assumption key is string and value is int. Does the byte array conversion dance.
 func (t *Tracker) UpdatePosition(bucketName string, key string, value int) error {
+
+	fmt.Printf("XXXXXXXXXXXXXX\n")
+	return nil
+
+	// fake for now...
+
+
+	/*
 	eventNo := make([]byte, 4)
 	eventNoInt := uint32(value)
 	binary.LittleEndian.PutUint32(eventNo, eventNoInt)
 	err := t.Update(bucketName, []byte(key), eventNo)
-	return err
+	return err */
 }
 
 // Update updates a key in a given bucket. key and value are byte arrays.

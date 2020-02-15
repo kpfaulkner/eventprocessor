@@ -42,7 +42,6 @@ func NewStreamProcessor(streamName string, processors []eventprocessors.EventPro
 
   // used to track where processes are up to?
   c.tracker = tracker.NewTracker(trackerPath)
-  //c.tracker.Connect()
   c.tracker.CreateBucket(streamName)
 
   // map between event and a processor channel pair.
@@ -253,9 +252,8 @@ func registerAllProcessors( eventProcessors []eventprocessors.EventProcessor) ( 
 
 // StartEventStoreConsumerForStream starts a number of EventProcessors against a particular stream
 func StartProcessingStream(streamName string, trackerPath string, processors []eventprocessors.EventProcessor ) error {
-	consumer := NewStreamProcessor(streamName, processors, trackerPath)
 
-	// Start reading the stream.
+	consumer := NewStreamProcessor(streamName, processors, trackerPath)
 	err := consumer.CreateAllCatchupSubscriberConnection(streamName)
 	if err != nil {
 		fmt.Printf("KABOOM %s\n", err.Error())
