@@ -118,7 +118,6 @@ func (t *Tracker) GetInt(bucketName string, key string) int{
 		return nil
 	})
 
-	// -1 means no data recorded for it.
 	eventNo := -1
 	if len(val) != 0 {
 		eventNo = int(binary.LittleEndian.Uint32(val))

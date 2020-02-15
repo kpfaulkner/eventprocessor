@@ -19,6 +19,7 @@ type IncomingAmount struct {
 type SalesEventProcessor struct {
 	eventprocessors.BaseEventProcessor
 	totalSales int
+	count int
 }
 
 func NewSalesEventProcessor() SalesEventProcessor{
@@ -27,6 +28,7 @@ func NewSalesEventProcessor() SalesEventProcessor{
   s.ProcessorName = "SalesEventProcessor"
 	s.CanSkipEvent = true
 	s.totalSales = 0
+	s.count = 0
 	return s
 }
 
@@ -44,7 +46,12 @@ func (s *SalesEventProcessor) ProcessEventSalesEventId(e *client.ResolvedEvent) 
 	amount := IncomingAmount{}
 	json.Unmarshal(e.Event().Data(), &amount)
 	s.totalSales += amount.Amount
-	fmt.Printf("Incoming sales amount %d, Total sales amount %d\n", amount.Amount, s.totalSales)
+	//fmt.Printf("Incoming sales amount %d, Total sales amount %d\n", amount.Amount, s.totalSales)
+	s.count++
+
+	if s.count % 1000 == 0 {
+		fmt.Printf("count %d\n", s.count)
+	}
 	return nil
 }
 

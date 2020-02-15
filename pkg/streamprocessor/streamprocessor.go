@@ -78,7 +78,6 @@ func (c *StreamProcessor) loadLastProcessedEventNumberPerProcessor() error {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -87,10 +86,10 @@ func (c *StreamProcessor) loadLastProcessedEventNumberPerProcessor() error {
 // This means that processing will start from this minimum number and any processor that has already
 // processed that event no will simply skip it.
 func (c *StreamProcessor) getMinimumEventNumberForStreamProcessors() int {
-	minimumEventNo := 0
+	minimumEventNo := -1
 	for _,pp := range c.processorPairs {
 		minVal := pp.processor.GetLastEventNumber()
-		if minimumEventNo == 0 {
+		if minimumEventNo == -1 {
 			minimumEventNo = minVal
 			continue
 		}
@@ -133,7 +132,11 @@ func (c *StreamProcessor) CreateAllCatchupSubscriberConnection(streamName string
 
 	lastCheckpoint := c.getMinimumEventNumberForStreamProcessors()
 	var fromEventNumber *int
-	fromEventNumber = &lastCheckpoint
+
+	// -1 as lastcheckpoint means that its never been used (uninitialised).
+	if lastCheckpoint > -1 {
+		fromEventNumber = &lastCheckpoint
+	}
 
 	c.subscription, err = conn.SubscribeToStreamFrom(c.streamName, fromEventNumber, settings, c.processEvent, c.liveProcessingStarted, c.subscriptionDropped, nil)
 	if err != nil {
