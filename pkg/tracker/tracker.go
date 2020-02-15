@@ -77,7 +77,7 @@ func (t *Tracker) Close() error{
 // assumption key is string and value is int. Does the byte array conversion dance.
 func (t *Tracker) UpdatePosition(bucketName string, key string, value int) error {
 
-	fmt.Printf("XXXXXXXXXXXXXX\n")
+	//fmt.Printf("XXXXXXXXXXXXXX\n")
 	return nil
 
 	// fake for now...
