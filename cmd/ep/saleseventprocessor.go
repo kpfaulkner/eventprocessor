@@ -50,7 +50,7 @@ func (s *SalesEventProcessor) ProcessEventSalesEventId(e *client.ResolvedEvent) 
 	s.count++
 
 	if s.count % 1000 == 0 {
-		fmt.Printf("count %d\n", s.count)
+		fmt.Printf("count %d event %d\n", s.count, e.OriginalEventNumber())
 	}
 	return nil
 }

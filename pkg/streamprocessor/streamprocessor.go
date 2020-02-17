@@ -36,12 +36,19 @@ type StreamProcessor struct {
 }
 
 // NewStreamProcessor create new StreamProcessor for reading a given stream and processing IT ALL!!
-func NewStreamProcessor(streamName string, processors []eventprocessors.EventProcessor, trackerPath string) StreamProcessor {
+// syncIntervalInMS can have a big perf impact (potentially).
+// value of 0 means it writes to the tracker realtime... as events are processed
+// If > 0 then we write to the tracker persistent storage every <whatever> milliseconds.
+// This means that far fewer writes to storage (speed!!!) but it also means that if an event is processed
+// and then the application crashes (so tracker isn't persisted to disk) there is a risk of events being
+// reprocessed the next time its written. Sooo, this means you need to be aware if the event processors being executed can
+// handle multiple runs for the same event.
+func NewStreamProcessor(streamName string, processors []eventprocessors.EventProcessor, trackerPath string, syncIntervalInMS int) StreamProcessor {
   c := StreamProcessor{}
   c.streamName = streamName
 
   // used to track where processes are up to?
-  c.tracker = tracker.NewTracker(trackerPath)
+  c.tracker = tracker.NewTracker(trackerPath, syncIntervalInMS)
   c.tracker.CreateBucket(streamName)
 
   // map between event and a processor channel pair.
@@ -251,9 +258,9 @@ func registerAllProcessors( eventProcessors []eventprocessors.EventProcessor) ( 
 }
 
 // StartEventStoreConsumerForStream starts a number of EventProcessors against a particular stream
-func StartProcessingStream(streamName string, trackerPath string, processors []eventprocessors.EventProcessor ) error {
+func StartProcessingStream(streamName string, trackerPath string, processors []eventprocessors.EventProcessor, trackerSyncIntervalInMS int ) error {
 
-	consumer := NewStreamProcessor(streamName, processors, trackerPath)
+	consumer := NewStreamProcessor(streamName, processors, trackerPath, trackerSyncIntervalInMS)
 	err := consumer.CreateAllCatchupSubscriberConnection(streamName)
 	if err != nil {
 		fmt.Printf("KABOOM %s\n", err.Error())

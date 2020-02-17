@@ -6,12 +6,18 @@ import (
 	bolt "go.etcd.io/bbolt"
 	"log"
 	"sync"
-
+	"time"
 )
 
 type TrackerKeyValue struct {
 	Key []byte
 	Value []byte
+}
+
+type MemoryTrackerKeyValue struct {
+	Key string
+	Value int
+	Stored bool
 }
 
 // Tracker tracks/stores where each processor is up to (event wise).
@@ -20,12 +26,17 @@ type TrackerKeyValue struct {
 type Tracker struct {
 	db *bolt.DB
 	dbPath string
+	memoryTracker map[string]MemoryTrackerKeyValue
+	useMemoryTracker bool
+	syncIntervalInMS int
 }
 
 var tracker Tracker
 var once sync.Once
 
-func NewTracker(path string ) Tracker {
+// if syncIntervalInMS == 0 it means write realtime and use boltDB as normal.
+// if > 0 then write to memory then sync every syncinterval.
+func NewTracker(path string, syncIntervalInMS int ) Tracker {
 	once.Do(func() {
 		tracker = Tracker{}
 		tracker.dbPath = path
@@ -34,9 +45,40 @@ func NewTracker(path string ) Tracker {
 			log.Fatalf("unable to open bbolt db %s\n", err.Error())
 		}
 		tracker.db = db
+		tracker.syncIntervalInMS = syncIntervalInMS
+		if syncIntervalInMS > 0 {
+			// going to write to internal tracker (map) then sync every now and then :)
+			tracker.memoryTracker = make(map[string]MemoryTrackerKeyValue)
+			tracker.useMemoryTracker = true
+      go tracker.sync()
+		} else {
+			tracker.useMemoryTracker = false
+		}
+
 	})
 
   return tracker
+}
+
+// Sync gets called every t.syncIntervalInMS and writes out map to boltdb
+func (t *Tracker) sync() {
+	for {
+		// write out each modified (stored == false) entry to persistent storage.
+		for k, v := range t.memoryTracker {
+			if !v.Stored {
+				eventNo := make([]byte, 4)
+				eventNoInt := uint32(v.Value)
+				binary.LittleEndian.PutUint32(eventNo, eventNoInt)
+				err := t.updatePersistedStorage(k, []byte("position"), eventNo)
+				if err != nil {
+					log.Fatalf("Unable to persist to storage... stopping %s\n", err.Error())
+				}
+				v.Stored = true
+				t.memoryTracker[k] = v
+			}
+		}
+		time.Sleep( time.Duration(t.syncIntervalInMS) * time.Millisecond)
+	}
 }
 
 func (t *Tracker) Connect() error{
@@ -75,23 +117,38 @@ func (t *Tracker) Close() error{
 
 // UpdatePosition updates a key in a given bucket..
 // assumption key is string and value is int. Does the byte array conversion dance.
-// Measuring the performance of eventprocessor in general, this updating of position (specifically writing to disk)
-// seems to be the slowest part of the entire system. Probably because all EPs are just empty.
-// But if I replace the below with just a return nil statement, we absolutely FLY through the events.
-// Need to see if boltdb is the best option here.
+// If t.useMemoryTracker is true, then write to the Tracker Map..  this will get synced later.
+// if t.useMemoryTracker is false, just write to boltdb directly.
 func (t *Tracker) UpdatePosition(bucketName string, key string, value int) error {
-	eventNo := make([]byte, 4)
-	eventNoInt := uint32(value)
-	binary.LittleEndian.PutUint32(eventNo, eventNoInt)
-	err := t.Update(bucketName, []byte(key), eventNo)
+	var err error
+	if t.useMemoryTracker {
+
+		var cache MemoryTrackerKeyValue
+		var ok bool
+		// TODO(kpfaulkner) confirm thread safe. I believe maps are thread safe (for same key)... is so, this
+		// should be good. If not...  lock or channels.
+		// Dont bother referencing "key", since that's always position.
+		if cache, ok = t.memoryTracker[bucketName]; !ok {
+			cache = MemoryTrackerKeyValue{ key, value, false}
+		} else {
+			cache.Value = value
+			cache.Stored = false // been updated... so not written to disk.
+		}
+		t.memoryTracker[bucketName] = cache
+	} else {
+		eventNo := make([]byte, 4)
+		eventNoInt := uint32(value)
+		binary.LittleEndian.PutUint32(eventNo, eventNoInt)
+		err = t.updatePersistedStorage(bucketName, []byte(key), eventNo)
+	}
 	return err
 }
 
-// Update updates a key in a given bucket. key and value are byte arrays.
+// updatePersistedStorage updates a key in a given bucket. key and value are byte arrays.
 // This is due to bbolt will require this in the first place, and it means
 // that I dont have to create individual functions per value type
 // It is expected that the bucket is actually the stream name (may change).
-func (t *Tracker) Update(bucketName string, key []byte, value []byte) error{
+func (t *Tracker) updatePersistedStorage(bucketName string, key []byte, value []byte) error{
 	t.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
 		var err error
