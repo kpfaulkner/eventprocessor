@@ -79,6 +79,7 @@ func (c *StreamProcessor)  ShutdownAllProjections() error {
 func (c *StreamProcessor) loadLastProcessedEventNumberPerProcessor() error {
 	for _,p := range c.processorPairs {
 		minVal := c.tracker.GetInt(p.processor.GetProcessorName(), "position")
+		// also into processor itself. Possibly not needed.
 		err := p.processor.SetLastEventNumber(minVal)
 		if err != nil {
 			return err
@@ -208,7 +209,9 @@ func (c *StreamProcessor) launchProcessor(pp EventProcessorChannelPair, wg *sync
 		}
 
 		// only process if the event number is greater than what the processor has already done.
-		if pp.processor.GetLastEventNumber() < req.OriginalEventNumber() {
+		// check tracker for latest count. Should this be in the processor itself?
+		currentCount := c.tracker.GetInt(pp.processor.GetProcessorName(), "position")
+		if currentCount < req.OriginalEventNumber() {
 			// wrap processing in a retry loop.
 			err := processEventWithRetry(pp.processor, &req)
 			if err == nil || pp.processor.CanSkipBadEvent() {

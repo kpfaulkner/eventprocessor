@@ -29,6 +29,7 @@ type Tracker struct {
 	memoryTracker map[string]MemoryTrackerKeyValue
 	useMemoryTracker bool
 	syncIntervalInMS int
+	lock sync.RWMutex  // have multiple goroutines writing at once.... let's be careful
 }
 
 var tracker Tracker
@@ -48,21 +49,46 @@ func NewTracker(path string, syncIntervalInMS int ) Tracker {
 		tracker.syncIntervalInMS = syncIntervalInMS
 		if syncIntervalInMS > 0 {
 			// going to write to internal tracker (map) then sync every now and then :)
-			tracker.memoryTracker = make(map[string]MemoryTrackerKeyValue)
+			tracker.loadTrackerDataToCache()
 			tracker.useMemoryTracker = true
-      go tracker.sync()
+      go tracker.syncCache()
 		} else {
 			tracker.useMemoryTracker = false
 		}
 
 	})
-
   return tracker
 }
 
+// loadTrackerDataToCache load tracker data from bboltdb to memory cache.
+func (t *Tracker) loadTrackerDataToCache() error {
+	cache := make(map[string]MemoryTrackerKeyValue)
+	err := t.db.View(func(tx *bolt.Tx) error {
+		return tx.ForEach(func(name []byte, b *bolt.Bucket) error {
+			bucketName := string(name)
+			val := t.GetInt(bucketName, "position")
+			entry := MemoryTrackerKeyValue{ bucketName, val, false}
+			cache[bucketName] = entry
+			return nil
+		})
+	})
+	t.memoryTracker = cache
+	return err
+}
+
+func (t *Tracker) UseMemoryTracker() bool {
+	return t.useMemoryTracker
+}
+
 // Sync gets called every t.syncIntervalInMS and writes out map to boltdb
-func (t *Tracker) sync() {
+func (t *Tracker) syncCache() {
 	for {
+
+		// do full lock here... seems overkill but otherwise we have a read lock for the for loop
+		// then need a writer lock for the updating of stored.
+		// Just do full lock here and see if it causes perf issues.
+		t.lock.Lock()
+
 		// write out each modified (stored == false) entry to persistent storage.
 		for k, v := range t.memoryTracker {
 			if !v.Stored {
@@ -77,6 +103,7 @@ func (t *Tracker) sync() {
 				t.memoryTracker[k] = v
 			}
 		}
+		t.lock.Unlock()
 		time.Sleep( time.Duration(t.syncIntervalInMS) * time.Millisecond)
 	}
 }
@@ -114,7 +141,6 @@ func (t *Tracker) Close() error{
 	return err
 }
 
-
 // UpdatePosition updates a key in a given bucket..
 // assumption key is string and value is int. Does the byte array conversion dance.
 // If t.useMemoryTracker is true, then write to the Tracker Map..  this will get synced later.
@@ -122,12 +148,13 @@ func (t *Tracker) Close() error{
 func (t *Tracker) UpdatePosition(bucketName string, key string, value int) error {
 	var err error
 	if t.useMemoryTracker {
-
 		var cache MemoryTrackerKeyValue
 		var ok bool
-		// TODO(kpfaulkner) confirm thread safe. I believe maps are thread safe (for same key)... is so, this
-		// should be good. If not...  lock or channels.
-		// Dont bother referencing "key", since that's always position.
+
+		// mutex to handle all the goroutines writing.
+		t.lock.Lock()
+		defer t.lock.Unlock()
+
 		if cache, ok = t.memoryTracker[bucketName]; !ok {
 			cache = MemoryTrackerKeyValue{ key, value, false}
 		} else {
@@ -167,23 +194,31 @@ func (t *Tracker) updatePersistedStorage(bucketName string, key []byte, value []
 	return nil
 }
 
+
+// GetInt gets from memory cache or the real bboltdb
 func (t *Tracker) GetInt(bucketName string, key string) int{
 
-	keybytes := []byte(key)
-	var val []byte
-	t.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
-		if b != nil {
-			val = b.Get(keybytes)
-		}
-		return nil
-	})
+	if t.useMemoryTracker {
+		// if doesn't exist, just return zero value (0) ?
+		cache := t.memoryTracker[bucketName]
+		return cache.Value
+	} else {
+		keybytes := []byte(key)
+		var val []byte
+		t.db.View(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte(bucketName))
+			if b != nil {
+				val = b.Get(keybytes)
+			}
+			return nil
+		})
 
-	eventNo := -1
-	if len(val) != 0 {
-		eventNo = int(binary.LittleEndian.Uint32(val))
+		eventNo := -1
+		if len(val) != 0 {
+			eventNo = int(binary.LittleEndian.Uint32(val))
+		}
+		return eventNo
 	}
-	return eventNo
 }
 
 func (t *Tracker) Get(bucketName string, key []byte) []byte{
@@ -236,5 +271,3 @@ func (t *Tracker) GetKeyValueListForBucket(bucketNames []string) []TrackerKeyVal
 	}
 	return l
 }
-
-
