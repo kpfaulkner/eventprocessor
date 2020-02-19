@@ -263,8 +263,23 @@ func registerAllProcessors( eventProcessors []eventprocessors.EventProcessor) ( 
 // StartEventStoreConsumerForStream starts a number of EventProcessors against a particular stream
 func StartProcessingStream(streamName string, trackerPath string, processors []eventprocessors.EventProcessor, trackerSyncIntervalInMS int ) error {
 
-	consumer := NewStreamProcessor(streamName, processors, trackerPath, trackerSyncIntervalInMS)
-	err := consumer.CreateAllCatchupSubscriberConnection(streamName)
+	sp := NewStreamProcessor(streamName, processors, trackerPath, trackerSyncIntervalInMS)
+
+	err := sp.loadLastProcessedEventNumberPerProcessor()
+	if err != nil {
+		return err
+	}
+
+	lastCheckpoint := sp.getMinimumEventNumberForStreamProcessors()
+	var fromEventNumber *int
+
+	// -1 as lastcheckpoint means that its never been used (uninitialised).
+	if lastCheckpoint > -1 {
+		fromEventNumber = &lastCheckpoint
+	}
+
+	csc := NewCatchupSubscriberManager(sp.processorMap)
+	err = csc.ConnectCatchupSubscriberConnection(streamName, fromEventNumber )
 	if err != nil {
 		fmt.Printf("KABOOM %s\n", err.Error())
 		return err
@@ -272,7 +287,7 @@ func StartProcessingStream(streamName string, trackerPath string, processors []e
 
 	// start processing the stream.
 	wg := sync.WaitGroup{}
-	consumer.LaunchAllProcessors(&wg)
+	sp.LaunchAllProcessors(&wg)
 	wg.Wait()
 
 	return nil

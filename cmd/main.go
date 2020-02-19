@@ -5,9 +5,17 @@ import (
 	"github.com/kpfaulkner/eventprocessor/cmd/ep"
 	"github.com/kpfaulkner/eventprocessor/pkg/eventprocessors"
 	"github.com/kpfaulkner/eventprocessor/pkg/streamprocessor"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+
 )
 
 func main() {
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	// where the tracking DB will be stored.
 	trackerPath := "c:/temp/mytracker"
