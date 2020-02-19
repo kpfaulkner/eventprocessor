@@ -265,11 +265,14 @@ func StartProcessingStream(streamName string, trackerPath string, processors []e
 
 	sp := NewStreamProcessor(streamName, processors, trackerPath, trackerSyncIntervalInMS)
 
+	// make sure each processor knows where it was up to.
+	// we might be able to get rid of this since the tracker should really take care of this.
 	err := sp.loadLastProcessedEventNumberPerProcessor()
 	if err != nil {
 		return err
 	}
 
+	// determine the absolute minimum event we should start processing from.
 	lastCheckpoint := sp.getMinimumEventNumberForStreamProcessors()
 	var fromEventNumber *int
 
@@ -278,6 +281,8 @@ func StartProcessingStream(streamName string, trackerPath string, processors []e
 		fromEventNumber = &lastCheckpoint
 	}
 
+	// CatchupSubscriberManager has the raw connection to EventStore. It will read the event and
+	// pub it onto the appropriate channel.
 	csc := NewCatchupSubscriberManager(sp.processorMap)
 	err = csc.ConnectCatchupSubscriberConnection(streamName, fromEventNumber )
 	if err != nil {
@@ -285,7 +290,7 @@ func StartProcessingStream(streamName string, trackerPath string, processors []e
 		return err
 	}
 
-	// start processing the stream.
+	// start processing all the channels.
 	wg := sync.WaitGroup{}
 	sp.LaunchAllProcessors(&wg)
 	wg.Wait()
