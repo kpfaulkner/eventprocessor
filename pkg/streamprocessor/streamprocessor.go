@@ -1,15 +1,11 @@
 package streamprocessor
 
 import (
-	"flag"
 	"fmt"
 	"github.com/avast/retry-go"
 	"github.com/jdextraze/go-gesclient/client"
-	"github.com/jdextraze/go-gesclient/flags"
 	"github.com/kpfaulkner/eventprocessor/pkg/eventprocessors"
 	"github.com/kpfaulkner/eventprocessor/pkg/tracker"
-	"log"
-
 	"sync"
 	"time"
 )
@@ -107,86 +103,6 @@ func (c *StreamProcessor) getMinimumEventNumberForStreamProcessors() int {
 	}
 	return minimumEventNo
 }
-
-func (c *StreamProcessor) CreateAllCatchupSubscriberConnection(streamName string) error {
-
-	var stream string
-	//var lastCheckpoint int
-	flags.Init(flag.CommandLine)
-  flag.StringVar(&stream, "stream",streamName, "Stream ID")
-  //flag.IntVar(&lastCheckpoint, "lastCheckpoint", -1, "Last checkpoint")
-  flag.Parse()
-
-	conn, err := flags.CreateConnection("AllCatchupSubscriber")
-	if err != nil {
-		log.Fatalf("Error creating connection: %v", err)
-	}
-
-	if err := conn.ConnectAsync().Wait(); err != nil {
-		log.Fatalf("Error connecting: %v", err)
-	}
-
-	c.connection = conn
-
-	// figure this out.
-	settings := client.NewCatchUpSubscriptionSettings(client.CatchUpDefaultMaxPushQueueSize,
-																										client.CatchUpDefaultReadBatchSize, flags.Verbose(), true)
-
-	err = c.loadLastProcessedEventNumberPerProcessor()
-	if err != nil {
-		return err
-	}
-
-	lastCheckpoint := c.getMinimumEventNumberForStreamProcessors()
-	var fromEventNumber *int
-
-	// -1 as lastcheckpoint means that its never been used (uninitialised).
-	if lastCheckpoint > -1 {
-		fromEventNumber = &lastCheckpoint
-	}
-
-	c.subscription, err = conn.SubscribeToStreamFrom(c.streamName, fromEventNumber, settings, c.processEvent, c.liveProcessingStarted, c.subscriptionDropped, nil)
-	if err != nil {
-		log.Fatalf("Unable to subscribe... BOOM %s\n", err.Error())
-	}
-	return nil
-}
-
-// processEvent runs through all projections and run them against the event.
-// DOES this have to run in order?
-// Or is it that a specific projection just needs to complete before that same projection
-// can run for the next event?
-func (c *StreamProcessor) processEvent(_ client.CatchUpSubscription, e *client.ResolvedEvent) error {
-	//fmt.Printf("event appeared: %+v | %s\n", e, string(e.OriginalEvent().Data()))
-
-	// If a processor is interested in a given EventType, then pass it to its channel.
-	// This will mean potentially a little bit of double handling, one check here to figure out if it
-	// should go into the channel, and then the processor itself will need to determine (switch/ifs)
-	// how to react to each EventType, but it's probably worth it.
-
-	// get the event type, get the list of process/channel pairs registered for that event type
-	// populate channels.
-	et := e.Event().EventType()
-	processors,ok := c.processorMap[et]
-	if ok {
-		for _,pp := range processors {
-			pp.channel <- *e
-		}
-	}
-
-	return nil
-}
-
-func (c *StreamProcessor) liveProcessingStarted(_ client.CatchUpSubscription) error {
-	log.Println("Live processing started")
-	return nil
-}
-
-func (c *StreamProcessor) subscriptionDropped(_ client.CatchUpSubscription, r client.SubscriptionDropReason, err error) error {
-	log.Printf("subscription dropped: %s, %v", r, err)
-	return nil
-}
-
 
 func processEventWithRetry(processor eventprocessors.EventProcessor, e *client.ResolvedEvent) error {
 	err := retry.Do(
