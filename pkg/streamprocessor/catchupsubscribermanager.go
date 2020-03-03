@@ -13,19 +13,21 @@ type CatchupSubscriberManager struct {
 	username string
 	password string
 	port string
+	usessl bool
 	connection client.Connection
 	subscription client.CatchUpSubscription
 	streamName string
 	processorMap map[string][]EventProcessorChannelPair
 }
 
-func NewCatchupSubscriberManager(processorMap map[string][]EventProcessorChannelPair, username string, password string, server string, port string) CatchupSubscriberManager {
+func NewCatchupSubscriberManager(processorMap map[string][]EventProcessorChannelPair, usessl bool,  username string, password string, server string, port string) CatchupSubscriberManager {
 	csm := CatchupSubscriberManager{}
 	csm.processorMap = processorMap
 	csm.username = username
 	csm.password = password
 	csm.port = port
 	csm.server = server
+	csm.usessl = usessl
 	return csm
 }
 
@@ -33,9 +35,20 @@ func (c *CatchupSubscriberManager) ConnectCatchupSubscriberConnection(streamName
 
 	fs := flag.NewFlagSet("esflags", flag.ExitOnError)
 	flags.Init(fs)
-	connectionString := fmt.Sprintf("ssl://%s:%s@%s:%s", c.username, c.password, c.server, c.port)
+
+	var schema string
+	if c.usessl  {
+		schema = "ssl"
+	} else {
+		schema = "tcp"
+	}
+
+	connectionString := fmt.Sprintf("%s://%s:%s@%s:%s",schema, c.username, c.password, c.server, c.port)
 	fs.Set("endpoint", connectionString)
-	fs.Set("ssl-host", connectionString)
+
+	if c.usessl {
+		fs.Set("ssl-host", connectionString)
+	}
 	flag.Parse()
 
 	conn, err := flags.CreateConnection("AllCatchupSubscriber")
