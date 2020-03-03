@@ -2,28 +2,41 @@ package streamprocessor
 
 import (
 	"flag"
+	"fmt"
 	"github.com/jdextraze/go-gesclient/client"
 	"github.com/jdextraze/go-gesclient/flags"
 	"log"
 )
 
 type CatchupSubscriberManager struct {
+	server string
+	username string
+	password string
+	port string
 	connection client.Connection
 	subscription client.CatchUpSubscription
 	streamName string
 	processorMap map[string][]EventProcessorChannelPair
 }
 
-func NewCatchupSubscriberManager(processorMap map[string][]EventProcessorChannelPair) CatchupSubscriberManager {
+func NewCatchupSubscriberManager(processorMap map[string][]EventProcessorChannelPair, username string, password string, server string, port string) CatchupSubscriberManager {
 	csm := CatchupSubscriberManager{}
 	csm.processorMap = processorMap
+	csm.username = username
+	csm.password = password
+	csm.port = port
+	csm.server = server
 	return csm
 }
 
 func (c *CatchupSubscriberManager) ConnectCatchupSubscriberConnection(streamName string, fromEventNumber *int ) error {
 
-	flags.Init(flag.CommandLine)
-  flag.Parse()
+	fs := flag.NewFlagSet("esflags", flag.ExitOnError)
+	flags.Init(fs)
+	connectionString := fmt.Sprintf("ssl://%s:%s@%s:%s", c.username, c.password, c.server, c.port)
+	fs.Set("endpoint", connectionString)
+	fs.Set("ssl-host", connectionString)
+	flag.Parse()
 
 	conn, err := flags.CreateConnection("AllCatchupSubscriber")
 	if err != nil {
