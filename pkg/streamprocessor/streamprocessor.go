@@ -177,7 +177,7 @@ func registerAllProcessors( eventProcessors []eventprocessors.EventProcessor) ( 
 }
 
 // StartEventStoreConsumerForStream starts a number of EventProcessors against a particular stream
-func StartProcessingStream(username string, password string, server string, port string, streamName string, trackerPath string, processors []eventprocessors.EventProcessor, trackerSyncIntervalInMS int ) error {
+func StartProcessingStream(usessl bool, username string, password string, server string, port string, streamName string, trackerPath string, processors []eventprocessors.EventProcessor, trackerSyncIntervalInMS int ) error {
 
 	sp := NewStreamProcessor(streamName, processors, trackerPath, trackerSyncIntervalInMS)
 
@@ -199,7 +199,7 @@ func StartProcessingStream(username string, password string, server string, port
 
 	// CatchupSubscriberManager has the raw connection to EventStore. It will read the event and
 	// pub it onto the appropriate channel.
-	csc := NewCatchupSubscriberManager(sp.processorMap, true, username, password, server, port)
+	csc := NewCatchupSubscriberManager(sp.processorMap, usessl, username, password, server, port)
 	err = csc.ConnectCatchupSubscriberConnection(streamName, fromEventNumber )
 	if err != nil {
 		fmt.Printf("KABOOM %s\n", err.Error())

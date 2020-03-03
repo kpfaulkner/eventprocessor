@@ -21,7 +21,7 @@ func main() {
 	trackerPath := "c:/temp/mytracker"
 	processor := ep.NewSalesEventProcessor()
 	l := []eventprocessors.EventProcessor { &processor}
-	err := streamprocessor.StartProcessingStream("admin", "changeit", "localhost", "1113", "Default", trackerPath, l, 500)
+	err := streamprocessor.StartProcessingStream(true, "admin", "changeit", "localhost", "1113", "Default", trackerPath, l, 500)
   if err != nil {
   	fmt.Printf("Couldn't start StartProcessingStream %s\n", err.Error())
   	return
