@@ -92,6 +92,7 @@ func (t *Tracker) syncCache() {
 		// having issues ranging over map and modifying.
 		// try getting keys first. then loop over array of keys.
 
+		/*
 		t.lock.RLock()
 		keys := []string{}
 		for k,_ := range t.memoryTracker {
@@ -99,9 +100,11 @@ func (t *Tracker) syncCache() {
 		}
 		t.lock.RUnlock()
 
-		for _, k := range keys {
-			t.lock.Lock()
-			v := t.memoryTracker[k]
+		for _, k := range keys { */
+		t.lock.Lock()
+
+		for k,v := range t.memoryTracker {
+			//v := t.memoryTracker[k]
 			if !v.Stored {
 				eventNo := make([]byte, 4)
 				eventNoInt := uint32(v.Value)
@@ -113,8 +116,8 @@ func (t *Tracker) syncCache() {
 				v.Stored = true
 				t.memoryTracker[k] = v
 			}
-			t.lock.Unlock()
 		}
+		t.lock.Unlock()
 
 		time.Sleep( time.Duration(t.syncIntervalInMS) * time.Millisecond)
 	}
