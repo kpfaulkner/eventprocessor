@@ -83,7 +83,7 @@ func (t *Tracker) UseMemoryTracker() bool {
 
 // Sync gets called every t.syncIntervalInMS and writes out map to boltdb
 func (t *Tracker) syncCache(lock *sync.RWMutex) {
-	fmt.Printf("synccache lock %p\n", lock)
+	//fmt.Printf("synccache lock %p\n", lock)
 	for {
 
 		// do full lock here... seems overkill but otherwise we have a read lock for the for loop
@@ -210,7 +210,7 @@ func (t *Tracker) GetInt(bucketName string, key string) int{
 
 	if t.useMemoryTracker {
 
-		fmt.Printf("GetInt lock %p\n", t.lock)
+		//fmt.Printf("GetInt lock %p\n", t.lock)
 		t.lock.RLock()
 		// if doesn't exist, just return zero value (0) ?
 		cache := t.memoryTracker[bucketName]
