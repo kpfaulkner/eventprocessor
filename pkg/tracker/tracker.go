@@ -92,11 +92,14 @@ func (t *Tracker) syncCache(lock *sync.RWMutex) {
 
 		// having issues ranging over map and modifying.
 		// try getting keys first. then loop over array of keys.
+
+		lock.RLock()
 		keys := []string{}
 		for k,_ := range t.memoryTracker {
 			keys = append(keys, k)
 		}
-
+		lock.RUnlock()
+		
 		for _, k := range keys {
 			lock.Lock()
 			v := t.memoryTracker[k]
