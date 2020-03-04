@@ -29,7 +29,7 @@ type Tracker struct {
 	memoryTracker map[string]MemoryTrackerKeyValue
 	useMemoryTracker bool
 	syncIntervalInMS int
-	lock sync.RWMutex  // have multiple goroutines writing at once.... let's be careful
+	lock *sync.RWMutex  // have multiple goroutines writing at once.... let's be careful
 }
 
 var tracker Tracker
@@ -47,11 +47,12 @@ func NewTracker(path string, syncIntervalInMS int ) Tracker {
 		}
 		tracker.db = db
 		tracker.syncIntervalInMS = syncIntervalInMS
+		tracker.lock = &sync.RWMutex{}
 		if syncIntervalInMS > 0 {
 			// going to write to internal tracker (map) then sync every now and then :)
 			tracker.loadTrackerDataToCache()
 			tracker.useMemoryTracker = true
-      go tracker.syncCache()
+      go tracker.syncCache( tracker.lock)
 		} else {
 			tracker.useMemoryTracker = false
 		}
@@ -81,8 +82,8 @@ func (t *Tracker) UseMemoryTracker() bool {
 }
 
 // Sync gets called every t.syncIntervalInMS and writes out map to boltdb
-func (t *Tracker) syncCache() {
-	fmt.Printf("synccache lock %p\n", &t.lock)
+func (t *Tracker) syncCache(lock *sync.RWMutex) {
+	fmt.Printf("synccache lock %p\n", lock)
 	for {
 
 		// do full lock here... seems overkill but otherwise we have a read lock for the for loop
@@ -97,7 +98,7 @@ func (t *Tracker) syncCache() {
 		}
 
 		for _, k := range keys {
-			t.lock.Lock()
+			lock.Lock()
 			v := t.memoryTracker[k]
 			if !v.Stored {
 				eventNo := make([]byte, 4)
@@ -110,7 +111,7 @@ func (t *Tracker) syncCache() {
 				v.Stored = true
 				t.memoryTracker[k] = v
 			}
-			t.lock.Unlock()
+			lock.Unlock()
 		}
 
 		time.Sleep( time.Duration(t.syncIntervalInMS) * time.Millisecond)
@@ -209,7 +210,7 @@ func (t *Tracker) GetInt(bucketName string, key string) int{
 
 	if t.useMemoryTracker {
 
-		fmt.Printf("GetInt lock %p\n", &t.lock)
+		fmt.Printf("GetInt lock %p\n", t.lock)
 		t.lock.RLock()
 		// if doesn't exist, just return zero value (0) ?
 		cache := t.memoryTracker[bucketName]
