@@ -28,7 +28,7 @@ type StreamProcessor struct {
   processorMap map[string][]EventProcessorChannelPair
 
 	// tracker used to keep track of where we are up to (eventids) of for each processor.
-	tracker tracker.Tracker
+	tracker *tracker.Tracker
 }
 
 // NewStreamProcessor create new StreamProcessor for reading a given stream and processing IT ALL!!

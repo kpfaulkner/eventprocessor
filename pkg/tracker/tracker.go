@@ -29,17 +29,17 @@ type Tracker struct {
 	memoryTracker map[string]MemoryTrackerKeyValue
 	useMemoryTracker bool
 	syncIntervalInMS int
-	lock *sync.RWMutex  // have multiple goroutines writing at once.... let's be careful
+	lock sync.RWMutex  // have multiple goroutines writing at once.... let's be careful
 }
 
-var tracker Tracker
+var tracker *Tracker
 var once sync.Once
 
 // if syncIntervalInMS == 0 it means write realtime and use boltDB as normal.
 // if > 0 then write to memory then sync every syncinterval.
-func NewTracker(path string, syncIntervalInMS int ) Tracker {
+func NewTracker(path string, syncIntervalInMS int ) *Tracker {
 	once.Do(func() {
-		tracker = Tracker{}
+		tracker = &Tracker{}
 		tracker.dbPath = path
 		db, err := bolt.Open(path, 0666, nil)
 		if err != nil {
@@ -47,12 +47,11 @@ func NewTracker(path string, syncIntervalInMS int ) Tracker {
 		}
 		tracker.db = db
 		tracker.syncIntervalInMS = syncIntervalInMS
-		tracker.lock = &sync.RWMutex{}
 		if syncIntervalInMS > 0 {
 			// going to write to internal tracker (map) then sync every now and then :)
 			tracker.loadTrackerDataToCache()
 			tracker.useMemoryTracker = true
-      go tracker.syncCache( tracker.lock)
+      go tracker.syncCache()
 		} else {
 			tracker.useMemoryTracker = false
 		}
@@ -82,7 +81,7 @@ func (t *Tracker) UseMemoryTracker() bool {
 }
 
 // Sync gets called every t.syncIntervalInMS and writes out map to boltdb
-func (t *Tracker) syncCache(lock *sync.RWMutex) {
+func (t *Tracker) syncCache() {
 	//fmt.Printf("synccache lock %p\n", lock)
 	for {
 
@@ -93,15 +92,15 @@ func (t *Tracker) syncCache(lock *sync.RWMutex) {
 		// having issues ranging over map and modifying.
 		// try getting keys first. then loop over array of keys.
 
-		lock.RLock()
+		t.lock.RLock()
 		keys := []string{}
 		for k,_ := range t.memoryTracker {
 			keys = append(keys, k)
 		}
-		lock.RUnlock()
-		
+		t.lock.RUnlock()
+
 		for _, k := range keys {
-			lock.Lock()
+			t.lock.Lock()
 			v := t.memoryTracker[k]
 			if !v.Stored {
 				eventNo := make([]byte, 4)
@@ -114,7 +113,7 @@ func (t *Tracker) syncCache(lock *sync.RWMutex) {
 				v.Stored = true
 				t.memoryTracker[k] = v
 			}
-			lock.Unlock()
+			t.lock.Unlock()
 		}
 
 		time.Sleep( time.Duration(t.syncIntervalInMS) * time.Millisecond)
