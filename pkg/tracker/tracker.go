@@ -87,10 +87,17 @@ func (t *Tracker) syncCache() {
 		// do full lock here... seems overkill but otherwise we have a read lock for the for loop
 		// then need a writer lock for the updating of stored.
 		// Just do full lock here and see if it causes perf issues.
-		t.lock.Lock()
 
-		// write out each modified (stored == false) entry to persistent storage.
-		for k, v := range t.memoryTracker {
+		// having issues ranging over map and modifying.
+		// try getting keys first. then loop over array of keys.
+		keys := []string{}
+		for k,_ := range t.memoryTracker {
+			keys = append(keys, k)
+		}
+
+		for _, k := range keys {
+			t.lock.Lock()
+			v := t.memoryTracker[k]
 			if !v.Stored {
 				eventNo := make([]byte, 4)
 				eventNoInt := uint32(v.Value)
@@ -101,10 +108,9 @@ func (t *Tracker) syncCache() {
 				}
 				v.Stored = true
 				t.memoryTracker[k] = v
-
 			}
+			t.lock.Unlock()
 		}
-		t.lock.Unlock()
 
 		time.Sleep( time.Duration(t.syncIntervalInMS) * time.Millisecond)
 	}
