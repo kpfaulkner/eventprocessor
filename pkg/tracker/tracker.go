@@ -87,6 +87,7 @@ func (t *Tracker) syncCache() {
 		// do full lock here... seems overkill but otherwise we have a read lock for the for loop
 		// then need a writer lock for the updating of stored.
 		// Just do full lock here and see if it causes perf issues.
+		t.lock.Lock()
 
 		// write out each modified (stored == false) entry to persistent storage.
 		for k, v := range t.memoryTracker {
@@ -98,13 +99,13 @@ func (t *Tracker) syncCache() {
 				if err != nil {
 					log.Fatalf("Unable to persist to storage... stopping %s\n", err.Error())
 				}
-				t.lock.Lock()
 				v.Stored = true
 				t.memoryTracker[k] = v
-				t.lock.Unlock()
 
 			}
 		}
+		t.lock.Unlock()
+
 		time.Sleep( time.Duration(t.syncIntervalInMS) * time.Millisecond)
 	}
 }
