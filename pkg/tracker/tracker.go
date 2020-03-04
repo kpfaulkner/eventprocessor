@@ -199,8 +199,10 @@ func (t *Tracker) updatePersistedStorage(bucketName string, key []byte, value []
 func (t *Tracker) GetInt(bucketName string, key string) int{
 
 	if t.useMemoryTracker {
+		t.lock.Lock()
 		// if doesn't exist, just return zero value (0) ?
 		cache := t.memoryTracker[bucketName]
+		t.lock.Unlock()
 		return cache.Value
 	} else {
 		keybytes := []byte(key)
