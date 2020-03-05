@@ -94,3 +94,8 @@ func (t *JsonTracker) UpdatePosition(processName string, key string, value int) 
 func (t *JsonTracker) GetPosition(processorName string, key string) int{
   return t.positionMap[processorName].Value
 }
+
+// probably need to modify interface to get rid of this.
+func (t *JsonTracker) UseMemoryTracker() bool {
+	return false
+}
