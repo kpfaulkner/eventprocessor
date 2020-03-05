@@ -65,6 +65,12 @@ func deserialiseFromDisk(jsonPath string) (map[string]TrackerDetails, error) {
 	var m map[string]TrackerDetails
 	jsonParser := json.NewDecoder(f)
 	jsonParser.Decode(&m)
+
+	if m == nil {
+		// no valid contents of file... just make an empty map
+		m = make(map[string]TrackerDetails)
+	}
+		
 	return m,nil
 }
 
