@@ -14,12 +14,6 @@ type TrackerKeyValue struct {
 	Value []byte
 }
 
-type MemoryTrackerKeyValue struct {
-	Key string
-	Value int
-	Stored bool
-}
-
 // BoltTracker tracks/stores where each processor is up to (event wise).
 // Using bboltDB for this...
 // Have a bbolt bucket per processor.
