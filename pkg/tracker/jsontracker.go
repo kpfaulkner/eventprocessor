@@ -70,7 +70,7 @@ func deserialiseFromDisk(jsonPath string) (map[string]TrackerDetails, error) {
 		// no valid contents of file... just make an empty map
 		m = make(map[string]TrackerDetails)
 	}
-		
+
 	return m,nil
 }
 
