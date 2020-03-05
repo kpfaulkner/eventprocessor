@@ -125,9 +125,11 @@ func (c *StreamProcessor) launchProcessor(pp EventProcessorChannelPair, wg *sync
 		}
 
 		// only process if the event number is greater than what the processor has already done.
-		// check tracker for latest count. Should this be in the processor itself?
-		//currentCount := c.tracker.GetInt(pp.processor.GetProcessorName(), "position")
-		currentCount := pp.processor.GetLastEventNumber()
+		// should probably be storing this in p.processor memory as opposed to hitting storage
+		// But in reality it appears as if the writing is the bottleneck and not this
+		// reading. Will only go back and re-evaluate this IF it really turns out to
+		// have some significant impact.
+		currentCount := c.tracker.GetInt(pp.processor.GetProcessorName(), "position")
 		if currentCount < req.OriginalEventNumber() {
 			// wrap processing in a retry loop.
 			err := processEventWithRetry(pp.processor, &req)
@@ -135,10 +137,7 @@ func (c *StreamProcessor) launchProcessor(pp EventProcessorChannelPair, wg *sync
 				if err != nil && pp.processor.CanSkipBadEvent() {
 					fmt.Printf("Cannot process event %d with processor %s, skipping it\n", req.OriginalEventNumber(), pp.processor.GetProcessorName())
 				}
-
-				// double handling... just to test an idea.
 				c.tracker.UpdatePosition(pp.processor.GetProcessorName(), "position", req.OriginalEventNumber())
-				pp.processor.SetLastEventNumber(req.OriginalEventNumber())
 			} else {
 				if !pp.processor.CanSkipBadEvent() {
 					// cannot skip... what do we do? kill the processor?
