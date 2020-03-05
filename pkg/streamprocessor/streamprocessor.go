@@ -74,7 +74,7 @@ func (c *StreamProcessor)  ShutdownAllProjections() error {
 // processor was up to.
 func (c *StreamProcessor) loadLastProcessedEventNumberPerProcessor() error {
 	for _,p := range c.processorPairs {
-		minVal := c.tracker.GetInt(p.processor.GetProcessorName(), "position")
+		minVal := c.tracker.GetPosition(p.processor.GetProcessorName(), "position")
 		// also into processor itself. Possibly not needed.
 		err := p.processor.SetLastEventNumber(minVal)
 		if err != nil {
@@ -129,7 +129,7 @@ func (c *StreamProcessor) launchProcessor(pp EventProcessorChannelPair, wg *sync
 		// But in reality it appears as if the writing is the bottleneck and not this
 		// reading. Will only go back and re-evaluate this IF it really turns out to
 		// have some significant impact.
-		currentCount := c.tracker.GetInt(pp.processor.GetProcessorName(), "position")
+		currentCount := c.tracker.GetPosition(pp.processor.GetProcessorName(), "position")
 		if currentCount < req.OriginalEventNumber() {
 			// wrap processing in a retry loop.
 			err := processEventWithRetry(pp.processor, &req)

@@ -66,7 +66,7 @@ func (t *Tracker) loadTrackerDataToCache() error {
 	err := t.db.View(func(tx *bolt.Tx) error {
 		return tx.ForEach(func(name []byte, b *bolt.Bucket) error {
 			bucketName := string(name)
-			val := t.GetInt(bucketName, "position")
+			val := t.GetPosition(bucketName, "position")
 			entry := MemoryTrackerKeyValue{ bucketName, val, false}
 			cache[bucketName] = entry
 			return nil
@@ -88,21 +88,7 @@ func (t *Tracker) syncCache() {
 		// do full lock here... seems overkill but otherwise we have a read lock for the for loop
 		// then need a writer lock for the updating of stored.
 		// Just do full lock here and see if it causes perf issues.
-
-		// having issues ranging over map and modifying.
-		// try getting keys first. then loop over array of keys.
-
-		/*
-		t.lock.RLock()
-		keys := []string{}
-		for k,_ := range t.memoryTracker {
-			keys = append(keys, k)
-		}
-		t.lock.RUnlock()
-
-		for _, k := range keys { */
 		t.lock.Lock()
-
 		for k,v := range t.memoryTracker {
 			//v := t.memoryTracker[k]
 			if !v.Stored {
@@ -160,7 +146,7 @@ func (t *Tracker) Close() error{
 // assumption key is string and value is int. Does the byte array conversion dance.
 // If t.useMemoryTracker is true, then write to the Tracker Map..  this will get synced later.
 // if t.useMemoryTracker is false, just write to boltdb directly.
-func (t *Tracker) UpdatePosition(bucketName string, key string, value int) error {
+func (t *Tracker) UpdatePosition(processName string, key string, value int) error {
 	var err error
 	if t.useMemoryTracker {
 		var cache MemoryTrackerKeyValue
@@ -170,18 +156,18 @@ func (t *Tracker) UpdatePosition(bucketName string, key string, value int) error
 		t.lock.Lock()
 		defer t.lock.Unlock()
 
-		if cache, ok = t.memoryTracker[bucketName]; !ok {
+		if cache, ok = t.memoryTracker[processName]; !ok {
 			cache = MemoryTrackerKeyValue{ key, value, false}
 		} else {
 			cache.Value = value
 			cache.Stored = false // been updated... so not written to disk.
 		}
-		t.memoryTracker[bucketName] = cache
+		t.memoryTracker[processName] = cache
 	} else {
 		eventNo := make([]byte, 4)
 		eventNoInt := uint32(value)
 		binary.LittleEndian.PutUint32(eventNo, eventNoInt)
-		err = t.updatePersistedStorage(bucketName, []byte(key), eventNo)
+		err = t.updatePersistedStorage(processName, []byte(key), eventNo)
 	}
 	return err
 }
@@ -211,14 +197,14 @@ func (t *Tracker) updatePersistedStorage(bucketName string, key []byte, value []
 
 
 // GetInt gets from memory cache or the real bboltdb
-func (t *Tracker) GetInt(bucketName string, key string) int{
+func (t *Tracker) GetPosition(processorName string, key string) int{
 
 	if t.useMemoryTracker {
 
 		//fmt.Printf("GetInt lock %p\n", t.lock)
 		t.lock.RLock()
 		// if doesn't exist, just return zero value (0) ?
-		cache := t.memoryTracker[bucketName]
+		cache := t.memoryTracker[processorName]
 		t.lock.RUnlock()
 		return cache.Value
 	} else {
@@ -226,7 +212,7 @@ func (t *Tracker) GetInt(bucketName string, key string) int{
 		keybytes := []byte(key)
 		var val []byte
 		t.db.View(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(bucketName))
+			b := tx.Bucket([]byte(processorName))
 			if b != nil {
 				val = b.Get(keybytes)
 			}
