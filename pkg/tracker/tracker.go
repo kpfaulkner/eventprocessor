@@ -222,6 +222,7 @@ func (t *Tracker) GetInt(bucketName string, key string) int{
 		t.lock.RUnlock()
 		return cache.Value
 	} else {
+
 		keybytes := []byte(key)
 		var val []byte
 		t.db.View(func(tx *bolt.Tx) error {
