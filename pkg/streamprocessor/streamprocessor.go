@@ -28,7 +28,7 @@ type StreamProcessor struct {
   processorMap map[string][]EventProcessorChannelPair
 
 	// tracker used to keep track of where we are up to (eventids) of for each processor.
-	tracker *tracker.Tracker
+	tracker tracker.TrackerInterface
 }
 
 // NewStreamProcessor create new StreamProcessor for reading a given stream and processing IT ALL!!
@@ -44,8 +44,8 @@ func NewStreamProcessor(streamName string, processors []eventprocessors.EventPro
   c.streamName = streamName
 
   // used to track where processes are up to?
-  c.tracker = tracker.NewTracker(trackerPath, syncIntervalInMS)
-  c.tracker.CreateBucket(streamName)
+  c.tracker = tracker.NewBoltTracker(trackerPath, syncIntervalInMS)
+  //c.tracker.CreateBucket(streamName)
 
   // map between event and a processor channel pair.
   // also list of processors.

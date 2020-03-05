@@ -20,10 +20,10 @@ type MemoryTrackerKeyValue struct {
 	Stored bool
 }
 
-// Tracker tracks/stores where each processor is up to (event wise).
+// BoltTracker tracks/stores where each processor is up to (event wise).
 // Using bboltDB for this...
 // Have a bbolt bucket per processor.
-type Tracker struct {
+type BoltTracker struct {
 	db *bolt.DB
 	dbPath string
 	memoryTracker map[string]MemoryTrackerKeyValue
@@ -32,14 +32,14 @@ type Tracker struct {
 	lock sync.RWMutex  // have multiple goroutines writing at once.... let's be careful
 }
 
-var tracker *Tracker
+var tracker *BoltTracker
 var once sync.Once
 
 // if syncIntervalInMS == 0 it means write realtime and use boltDB as normal.
 // if > 0 then write to memory then sync every syncinterval.
-func NewTracker(path string, syncIntervalInMS int ) *Tracker {
+func NewBoltTracker(path string, syncIntervalInMS int ) *BoltTracker {
 	once.Do(func() {
-		tracker = &Tracker{}
+		tracker = &BoltTracker{}
 		tracker.dbPath = path
 		db, err := bolt.Open(path, 0666, nil)
 		if err != nil {
@@ -61,7 +61,7 @@ func NewTracker(path string, syncIntervalInMS int ) *Tracker {
 }
 
 // loadTrackerDataToCache load tracker data from bboltdb to memory cache.
-func (t *Tracker) loadTrackerDataToCache() error {
+func (t *BoltTracker) loadTrackerDataToCache() error {
 	cache := make(map[string]MemoryTrackerKeyValue)
 	err := t.db.View(func(tx *bolt.Tx) error {
 		return tx.ForEach(func(name []byte, b *bolt.Bucket) error {
@@ -76,12 +76,12 @@ func (t *Tracker) loadTrackerDataToCache() error {
 	return err
 }
 
-func (t *Tracker) UseMemoryTracker() bool {
+func (t *BoltTracker) UseMemoryTracker() bool {
 	return t.useMemoryTracker
 }
 
 // Sync gets called every t.syncIntervalInMS and writes out map to boltdb
-func (t *Tracker) syncCache() {
+func (t *BoltTracker) syncCache() {
 	//fmt.Printf("synccache lock %p\n", lock)
 	for {
 
@@ -109,7 +109,7 @@ func (t *Tracker) syncCache() {
 	}
 }
 
-func (t *Tracker) Connect() error{
+func (t *BoltTracker) Connect() error{
 
 	db, err := bolt.Open(t.dbPath, 0666, nil)
 	if err != nil {
@@ -120,7 +120,7 @@ func (t *Tracker) Connect() error{
 	return nil
 }
 
-func (t *Tracker) CreateBucket(bucketName string) error{
+func (t *BoltTracker) CreateBucket(bucketName string) error{
 	t.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
 		var err error
@@ -137,16 +137,16 @@ func (t *Tracker) CreateBucket(bucketName string) error{
 	return nil
 }
 
-func (t *Tracker) Close() error{
+func (t *BoltTracker) Close() error{
 	err := t.db.Close()
 	return err
 }
 
 // UpdatePosition updates a key in a given bucket..
 // assumption key is string and value is int. Does the byte array conversion dance.
-// If t.useMemoryTracker is true, then write to the Tracker Map..  this will get synced later.
+// If t.useMemoryTracker is true, then write to the BoltTracker Map..  this will get synced later.
 // if t.useMemoryTracker is false, just write to boltdb directly.
-func (t *Tracker) UpdatePosition(processName string, key string, value int) error {
+func (t *BoltTracker) UpdatePosition(processName string, key string, value int) error {
 	var err error
 	if t.useMemoryTracker {
 		var cache MemoryTrackerKeyValue
@@ -176,7 +176,7 @@ func (t *Tracker) UpdatePosition(processName string, key string, value int) erro
 // This is due to bbolt will require this in the first place, and it means
 // that I dont have to create individual functions per value type
 // It is expected that the bucket is actually the stream name (may change).
-func (t *Tracker) updatePersistedStorage(bucketName string, key []byte, value []byte) error{
+func (t *BoltTracker) updatePersistedStorage(bucketName string, key []byte, value []byte) error{
 	t.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
 		var err error
@@ -197,7 +197,7 @@ func (t *Tracker) updatePersistedStorage(bucketName string, key []byte, value []
 
 
 // GetInt gets from memory cache or the real bboltdb
-func (t *Tracker) GetPosition(processorName string, key string) int{
+func (t *BoltTracker) GetPosition(processorName string, key string) int{
 
 	if t.useMemoryTracker {
 
@@ -227,7 +227,7 @@ func (t *Tracker) GetPosition(processorName string, key string) int{
 	}
 }
 
-func (t *Tracker) Get(bucketName string, key []byte) []byte{
+func (t *BoltTracker) Get(bucketName string, key []byte) []byte{
 
 	var val []byte
 	t.db.View(func(tx *bolt.Tx) error {
@@ -242,7 +242,7 @@ func (t *Tracker) Get(bucketName string, key []byte) []byte{
 }
 
 
-func (t *Tracker) GetKeysForBucket(bucketName string) [][]byte{
+func (t *BoltTracker) GetKeysForBucket(bucketName string) [][]byte{
 
 	keyList := make([][]byte,0,5)
 	t.db.View(func(tx *bolt.Tx) error {
@@ -259,7 +259,7 @@ func (t *Tracker) GetKeysForBucket(bucketName string) [][]byte{
 	return keyList
 }
 
-func (t *Tracker) GetKeyValueListForBucket(bucketNames []string) []TrackerKeyValue{
+func (t *BoltTracker) GetKeyValueListForBucket(bucketNames []string) []TrackerKeyValue{
 
 	l := make([]TrackerKeyValue,0,5)
 	for _,bucket := range bucketNames {
