@@ -8,6 +8,7 @@ type MemoryTrackerKeyValue struct {
 
 type TrackerInterface interface {
 	UseMemoryTracker() bool
+	Enabled() bool
 	UpdatePosition(processorName string, key string, value int) error
 	GetPosition(processorName string, key string) int
 }

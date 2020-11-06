@@ -44,9 +44,13 @@ func NewStreamProcessor(streamName string, processors []eventprocessors.EventPro
   c.streamName = streamName
 
   // used to track where processes are up to?
-  c.tracker = tracker.NewBoltTracker(trackerPath, syncIntervalInMS)
-	//c.tracker = tracker.NewJsonTracker(trackerPath)
-  //c.tracker.CreateBucket(streamName)
+  // if syncInternalInMS is < 0, then we dont want to track (maybe we just want logs of output?)
+  // then use nulltrakcer.
+  if syncIntervalInMS < 0 {
+	  c.tracker = tracker.NewNullTracker(trackerPath, syncIntervalInMS)
+  } else {
+	  c.tracker = tracker.NewBoltTracker(trackerPath, syncIntervalInMS)
+  }
 
   // map between event and a processor channel pair.
   // also list of processors.

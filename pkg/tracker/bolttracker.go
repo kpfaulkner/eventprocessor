@@ -24,17 +24,18 @@ type BoltTracker struct {
 	useMemoryTracker bool
 	syncIntervalInMS int
 	lock sync.RWMutex  // have multiple goroutines writing at once.... let's be careful
+	enabled bool
 }
 
 var tracker *BoltTracker
 var once sync.Once
 
 // if syncIntervalInMS == 0 it means write realtime and use boltDB as normal.
-// if > 0 then write to memory then sync every syncinterval.
 func NewBoltTracker(path string, syncIntervalInMS int ) *BoltTracker {
 	once.Do(func() {
 		tracker = &BoltTracker{}
 		tracker.dbPath = path
+		tracker.enabled = syncIntervalInMS >= 0
 		db, err := bolt.Open(path, 0666, nil)
 		if err != nil {
 			log.Fatalf("unable to open bbolt db %s\n", err.Error())
@@ -52,6 +53,10 @@ func NewBoltTracker(path string, syncIntervalInMS int ) *BoltTracker {
 
 	})
   return tracker
+}
+
+func (t *BoltTracker) Enabled() bool {
+  return t.enabled
 }
 
 // loadTrackerDataToCache load tracker data from bboltdb to memory cache.
