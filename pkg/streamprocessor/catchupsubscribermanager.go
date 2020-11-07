@@ -17,15 +17,11 @@ type CatchupSubscriberManager struct {
 	connection client.Connection
 	subscription client.CatchUpSubscription
 	streamName string
-	processorMap map[string][]EventProcessorChannelPair
 	eventTypeChannelMap map[string][]chan client.ResolvedEvent
 }
 
-func NewCatchupSubscriberManager(processorMap map[string][]EventProcessorChannelPair,etChannelMap map[string][]chan client.ResolvedEvent, usessl bool,  username string, password string, server string, port string) CatchupSubscriberManager {
+func NewCatchupSubscriberManager(etChannelMap map[string][]chan client.ResolvedEvent, usessl bool,  username string, password string, server string, port string) CatchupSubscriberManager {
 	csm := CatchupSubscriberManager{}
-	csm.processorMap = processorMap
-	xxxxxxxxxxxx remove processorMap? is it needed anymore?
-
 	csm.eventTypeChannelMap = etChannelMap
 	csm.username = username
 	csm.password = password
