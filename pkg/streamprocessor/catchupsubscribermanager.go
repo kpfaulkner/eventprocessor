@@ -18,11 +18,13 @@ type CatchupSubscriberManager struct {
 	subscription client.CatchUpSubscription
 	streamName string
 	processorMap map[string][]EventProcessorChannelPair
+	eventTypeChannelMap map[string][]chan client.ResolvedEvent
 }
 
-func NewCatchupSubscriberManager(processorMap map[string][]EventProcessorChannelPair, usessl bool,  username string, password string, server string, port string) CatchupSubscriberManager {
+func NewCatchupSubscriberManager(processorMap map[string][]EventProcessorChannelPair,etChannelMap map[string][]chan client.ResolvedEvent, usessl bool,  username string, password string, server string, port string) CatchupSubscriberManager {
 	csm := CatchupSubscriberManager{}
 	csm.processorMap = processorMap
+	csm.eventTypeChannelMap = etChannelMap
 	csm.username = username
 	csm.password = password
 	csm.port = port
@@ -88,10 +90,11 @@ func (c *CatchupSubscriberManager) processEvent(_ client.CatchUpSubscription, e 
 	// get the event type, get the list of process/channel pairs registered for that event type
 	// populate channels.
 	et := e.Event().EventType()
-	processors,ok := c.processorMap[et]
+	//processors,ok := c.processorMap[et]
+	channelsToSend, ok := c.eventTypeChannelMap[et]
 	if ok {
-		for _,pp := range processors {
-			pp.channel <- *e
+		for _,ch := range channelsToSend {
+			ch <- *e
 		}
 	}
 

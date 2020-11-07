@@ -27,6 +27,9 @@ type StreamProcessor struct {
 	// map of processors... to make mapping to eventtypes easier.
   processorMap map[string][]EventProcessorChannelPair
 
+	// map eventtypes to channels that need to recieve the events.
+	eventTypeChannelMap map[string][]chan client.ResolvedEvent
+
 	// tracker used to keep track of where we are up to (eventids) of for each processor.
 	tracker tracker.TrackerInterface
 }
@@ -54,7 +57,7 @@ func NewStreamProcessor(streamName string, processors []eventprocessors.EventPro
 
   // map between event and a processor channel pair.
   // also list of processors.
-  c.processorMap, c.processorPairs = registerAllProcessors(processors)
+  c.processorMap, c.processorPairs, c.eventTypeChannelMap = registerAllProcessors(processors)
   return c
 }
 
@@ -162,14 +165,25 @@ func (c *StreamProcessor) launchProcessor(pp EventProcessorChannelPair, wg *sync
 // register all processors. Add them to a event type based map.
 // returns a map with key of eventtype (just string) to a slice of EventProcessorChannelPair. Each EventProcessorChannelPair is a
 // channel (to send the data) and the event processor used to process it.
-func registerAllProcessors( eventProcessors []eventprocessors.EventProcessor) ( map[string][]EventProcessorChannelPair, []EventProcessorChannelPair) {
+func registerAllProcessors( eventProcessors []eventprocessors.EventProcessor) ( map[string][]EventProcessorChannelPair, []EventProcessorChannelPair, map[string][]chan client.ResolvedEvent) {
 	ppMap := make(map[string][]EventProcessorChannelPair)
+	eventTypeChannelMap := make(map[string][]chan client.ResolvedEvent)
   ppArray := []EventProcessorChannelPair{}
 
 	for _,p := range eventProcessors {
 		ch := make(chan client.ResolvedEvent , 10000)
 
-		// make sure create for correct count of instances.
+		// make a map of event types to an array of channels that
+		// need to receive that eventtype.
+		for _, et := range p.GetRegisteredEventTypes() {
+			channelArray, ok := eventTypeChannelMap[et]
+			if !ok {
+				channelArray = []chan client.ResolvedEvent{}
+			}
+			eventTypeChannelMap[et] = append(channelArray, ch)
+		}
+
+			// make sure create for correct count of instances.
 		for count:=0 ;count < p.GetNumberOfInstances(); count++ {
 			pp := EventProcessorChannelPair{processor: p}
 			pp.channel = ch
@@ -185,7 +199,7 @@ func registerAllProcessors( eventProcessors []eventprocessors.EventProcessor) ( 
 			}
 		}
 	}
-	return ppMap, ppArray
+	return ppMap, ppArray, eventTypeChannelMap
 }
 
 // StartEventStoreConsumerForStream starts a number of EventProcessors against a particular stream
@@ -211,7 +225,7 @@ func StartProcessingStream(usessl bool, username string, password string, server
 
 	// CatchupSubscriberManager has the raw connection to EventStore. It will read the event and
 	// pub it onto the appropriate channel.
-	csc := NewCatchupSubscriberManager(sp.processorMap, usessl, username, password, server, port)
+	csc := NewCatchupSubscriberManager(sp.processorMap, sp.eventTypeChannelMap, usessl, username, password, server, port)
 	err = csc.ConnectCatchupSubscriberConnection(streamName, fromEventNumber )
 	if err != nil {
 		fmt.Printf("KABOOM %s\n", err.Error())
