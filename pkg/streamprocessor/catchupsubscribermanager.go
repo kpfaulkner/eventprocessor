@@ -92,6 +92,7 @@ func (c *CatchupSubscriberManager) processEvent(_ client.CatchUpSubscription, e 
 	channelsToSend, ok := c.eventTypeChannelMap[et]
 	if ok {
 		for _,ch := range channelsToSend {
+			fmt.Printf("chan len %s\n", len(ch))
 			ch <- *e
 		}
 	}
