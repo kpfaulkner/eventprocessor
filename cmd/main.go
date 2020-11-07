@@ -19,7 +19,7 @@ func main() {
 
 	// where the tracking DB will be stored.
 	trackerPath := "c:/temp/mytracker"
-	processor := ep.NewSalesEventProcessor()
+	processor := ep.NewSalesEventProcessor(1)
 	l := []eventprocessors.EventProcessor { &processor}
 	err := streamprocessor.StartProcessingStream(true, "admin", "changeit", "localhost", "1113", "Default", trackerPath, l, 500)
   if err != nil {

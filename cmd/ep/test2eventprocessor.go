@@ -18,12 +18,13 @@ type Test2Processor struct {
 
 }
 
-func NewTest2Processor() Test2Processor{
+func NewTest2Processor(noInstances int) Test2Processor{
 	p := Test2Processor{}
 	p.EventTypes = []string{ TestEvent1Id, Test2Event2Id}
   //p.StreamName = "Default"
 	p.ProcessorName = "Test2Processor"
 	p.CanSkipEvent = false
+	p.NumberOfInstances = noInstances
 	return p
 }
 

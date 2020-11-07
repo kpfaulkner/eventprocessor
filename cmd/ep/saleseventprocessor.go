@@ -22,13 +22,14 @@ type SalesEventProcessor struct {
 	count int
 }
 
-func NewSalesEventProcessor() SalesEventProcessor{
+func NewSalesEventProcessor(noInstances int) SalesEventProcessor{
 	s := SalesEventProcessor{}
 	s.EventTypes = []string{ SalesEventId}
   s.ProcessorName = "SalesEventProcessor"
 	s.CanSkipEvent = true
 	s.totalSales = 0
 	s.count = 0
+	s.NumberOfInstances = noInstances
 	return s
 }
 

@@ -30,6 +30,11 @@ type EventProcessor interface {
 	GetLastEventNumber() int
 
 	SetLastEventNumber(pos int) error
+
+	// GetNumberOfInstances returns number of instances of this EventProcessor can be created
+	// All these instances will feed off the same channel of events, so the load is spread
+	// over these instances and NOT duplicated.
+	GetNumberOfInstances() int
 }
 
 // BaseEventProcessor, base struct for all event processors.
@@ -42,6 +47,7 @@ type BaseEventProcessor struct {
 	ProcessorName string
 	CanSkipEvent bool
 	LastEventProcessed int
+	NumberOfInstances int
 }
 
 func (p *BaseEventProcessor) ProcessEvent(event *client.ResolvedEvent) error {
@@ -67,4 +73,8 @@ func (p *BaseEventProcessor) GetLastEventNumber() int {
 func (p *BaseEventProcessor) SetLastEventNumber(pos int) error {
 	p.LastEventProcessed = pos
 	return nil
+}
+
+func (p *BaseEventProcessor) GetNumberOfInstances() int {
+	return p.NumberOfInstances
 }

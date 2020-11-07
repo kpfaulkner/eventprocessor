@@ -15,12 +15,13 @@ type TestProcessor struct {
 	eventprocessors.BaseEventProcessor
 }
 
-func NewTestProcessor() TestProcessor{
+func NewTestProcessor(noInstances int) TestProcessor{
 	p := TestProcessor{}
 	p.EventTypes = []string{ TestEvent1Id, TestEvent2Id}
 	//p.StreamName = "Default"
 	p.ProcessorName = "TestProcessor"
 	p.CanSkipEvent = true
+	p.NumberOfInstances = noInstances
 	return p
 }
 
