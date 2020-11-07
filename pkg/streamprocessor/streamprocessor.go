@@ -167,18 +167,22 @@ func registerAllProcessors( eventProcessors []eventprocessors.EventProcessor) ( 
   ppArray := []EventProcessorChannelPair{}
 
 	for _,p := range eventProcessors {
-		pp := EventProcessorChannelPair{processor: p }
 		ch := make(chan client.ResolvedEvent , 10000)
-		pp.channel = ch
-		ppArray = append(ppArray, pp)
 
-		// put
-		for _,et := range p.GetRegisteredEventTypes() {
-			ppArray, ok := ppMap[et]
-			if !ok {
-				ppArray = []EventProcessorChannelPair{}
+		// make sure create for correct count of instances.
+		for count:=0 ;count < p.GetNumberOfInstances(); count++ {
+			pp := EventProcessorChannelPair{processor: p}
+			pp.channel = ch
+			ppArray = append(ppArray, pp)
+
+			// put
+			for _, et := range p.GetRegisteredEventTypes() {
+				ppArray, ok := ppMap[et]
+				if !ok {
+					ppArray = []EventProcessorChannelPair{}
+				}
+				ppMap[et] = append(ppArray, pp)
 			}
-			ppMap[et] = append(ppArray, pp)
 		}
 	}
 	return ppMap, ppArray
