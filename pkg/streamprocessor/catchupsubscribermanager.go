@@ -78,24 +78,20 @@ func (c *CatchupSubscriberManager) ConnectCatchupSubscriberConnection(streamName
 // Or is it that a specific projection just needs to complete before that same projection
 // can run for the next event?
 func (c *CatchupSubscriberManager) processEvent(_ client.CatchUpSubscription, e *client.ResolvedEvent) error {
-	//fmt.Printf("event appeared: %+v | %s\n", e, string(e.OriginalEvent().Data()))
 
-	// If a processor is interested in a given EventType, then pass it to its channel.
-	// This will mean potentially a little bit of double handling, one check here to figure out if it
-	// should go into the channel, and then the processor itself will need to determine (switch/ifs)
-	// how to react to each EventType, but it's probably worth it.
+	// Get channels for event types, send it on.
+	event := e.Event()
 
-	// get the event type, get the list of process/channel pairs registered for that event type
-	// populate channels.
-	et := e.Event().EventType()
-	//processors,ok := c.processorMap[et]
-	channelsToSend, ok := c.eventTypeChannelMap[et]
-	if ok {
-		for _,ch := range channelsToSend {
-			ch <- *e
+	if event != nil {
+		et := e.Event().EventType()
+		channelsToSend, ok := c.eventTypeChannelMap[et]
+		if ok {
+			for _, ch := range channelsToSend {
+				ch <- *e
+			}
 		}
 	}
-
+	
 	return nil
 }
 
