@@ -91,7 +91,7 @@ func (c *CatchupSubscriberManager) processEvent(_ client.CatchUpSubscription, e 
 			}
 		}
 	}
-	
+
 	return nil
 }
 
