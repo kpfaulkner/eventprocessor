@@ -220,9 +220,7 @@ func StartProcessingStream(usessl bool, username string, password string, server
 	// -1 as lastcheckpoint means that its never been used (uninitialised).
 	if lastCheckpoint > -1 {
 		fromEventNumber = &lastCheckpoint
-	} else {
-		*fromEventNumber = 0 // why wasn't this needed before.
-	}
+	} 
 
 	// CatchupSubscriberManager has the raw connection to EventStore. It will read the event and
 	// pub it onto the appropriate channel.
